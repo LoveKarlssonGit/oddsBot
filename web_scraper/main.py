@@ -40,7 +40,7 @@ import time
 # team_data = matches.merge(shooting[["Date", "Sh", "SoT", "Dist", "FK", "PK", "PKatt"]], on="Date")
 # # print(data.text)
 
-years = list(range(2024, 2020, -1))
+years = list(range(2024, 2022, -1))
 
 
 all_matches = []
@@ -68,18 +68,105 @@ for year in years:
         data = requests.get(f"https://fbref.com{links[0]}")
         shooting = pd.read_html(data.text, match="Shooting")[0]
         shooting.columns = shooting.columns.droplevel()
+        time.sleep(12)
+        links = [l.get("href") for l in soup.find_all('a')]
+        links = [l for l in links if l and 'all_comps/keeper/' in l]
+        data = requests.get(f"https://fbref.com{links[0]}")
+        goalkeeping = pd.read_html(data.text, match="Goalkeeping")[0]
+        goalkeeping.columns = goalkeeping.columns.droplevel()
+        time.sleep(12)
+        links = [l.get("href") for l in soup.find_all('a')]
+        links = [l for l in links if l and 'all_comps/passing/' in l]
+        data = requests.get(f"https://fbref.com{links[0]}")
+        passing = pd.read_html(data.text, match="Passing")[0]
+        passing.columns = passing.columns.droplevel()
+        time.sleep(12)
+        links = [l.get("href") for l in soup.find_all('a')]
+        links = [l for l in links if l and 'all_comps/gca/' in l]
+        data = requests.get(f"https://fbref.com{links[0]}")
+        gca = pd.read_html(data.text, match="Goal and Shot Creation")[0]
+        gca.columns = gca.columns.droplevel()
+        time.sleep(12)
+        links = [l.get("href") for l in soup.find_all('a')]
+        links = [l for l in links if l and 'all_comps/defense/' in l]
+        data = requests.get(f"https://fbref.com{links[0]}")
+        defence = pd.read_html(data.text, match="Defensive Actions")[0]
+        defence.columns = defence.columns.droplevel()
+        time.sleep(12)
+        links = [l.get("href") for l in soup.find_all('a')]
+        links = [l for l in links if l and 'all_comps/misc/' in l]
+        data = requests.get(f"https://fbref.com{links[0]}")
+        misc = pd.read_html(data.text, match="Miscellaneous Stats")[0]
+        misc.columns = misc.columns.droplevel()
+        time.sleep(12)
         try:
-            team_data = matches.merge(shooting[["Date", "Sh", "SoT", "Dist", "FK", "PK", "PKatt"]], on="Date")
+            # Start with the matches DataFrame
+            team_data = matches
+            # Merge shooting data
+            team_data = team_data.merge(
+                shooting[["Date", "Sh", "SoT", "Dist", "FK", "PK", "PKatt"]],
+                on="Date",
+                how="left"
+            )
+
+            # Merge goalkeeping data
+            team_data = team_data.merge(
+                goalkeeping[["Date", "GA", "Saves", "CS", "PSxG"]],
+                on="Date",
+                how="left"
+            )
+
+            # Merge passing data
+            team_data = team_data.merge(
+                passing[["Date", "Cmp", "Att", "Cmp%", "PrgDist"]],
+                on="Date",
+                how="left"
+            )
+
+            # Merge goal creation (gca) data
+            team_data = team_data.merge(
+                gca[["Date", "SCA", "GCA"]],
+                on="Date",
+                how="left"
+            )
+
+            # Merge defense (defence) data
+            team_data = team_data.merge(
+                defence[["Date", "Tkl", "TklW", "Int", "Blocks"]],
+                on="Date",
+                how="left"
+            )
+
+            # Merge miscellaneous (misc) data
+            team_data = team_data.merge(
+                misc[["Date", "CrdY", "CrdR", "Fls", "Off"]],
+                on="Date",
+                how="left"
+            )
+
         except ValueError:
+            print(ValueError)
             continue
         team_data = team_data[team_data["Comp"] == "Premier League"]
 
         team_data["Season"] = year
         team_data["Team"] = team_name
         all_matches.append(team_data)
-        time.sleep(12)
+
 
 
 match_df = pd.concat(all_matches)
 match_df.columns = [c.lower() for c in match_df.columns]
-match_df.to_csv("premier_league_matches1.csv")
+match_df = match_df[match_df.notes != "Head-to-Head"]
+match_df.to_csv("premier_league_matches13.csv")
+
+# Specify columns to merge for each stat (adjust as needed)
+# merge_columns = {
+#     'shooting': ["Date", "Sh", "SoT", "Dist", "FK", "PK", "PKatt", "xGA"],
+#     'goalkeeping': ["Date", "GA", "Saves", "CS", "PSxG"],  # Example columns for goalkeeping
+#     'passing': ["Date", "Cmp", "Att", "Cmp%", "PrgDist"],  # Example columns for passing
+#     'gca': ["Date", "SCA", "GCA"],  # Example columns for goal creation
+#     'possession': ["Date", "Touches", "DribSucc", "Carries"],  # Example columns for possession
+#     'defense': ["Date", "Tkl", "TklW", "Int", "Blocks"],  # Example columns for defense
+#     'misc': ["Date", "CrdY", "CrdR", "Fls", "Off"]  # Example columns for miscellaneous
+# }
